@@ -1,0 +1,15 @@
+{
+    "name": "tasa/payroll",
+    "description": "WordPress Payroll Management Plugin",
+    "type": "wordpress-plugin",
+    "require": {
+        "php": ">=7.4",
+        "tecnickcom/tcpdf": "^6.6"
+    },
+    "autoload": {
+        "classmap": [
+            "includes/"
+        ]
+    }
+}
+

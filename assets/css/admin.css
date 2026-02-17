@@ -1,0 +1,83 @@
+/* TASA Payroll Admin Styles */
+
+.tasa-payroll-admin {
+    max-width: 1200px;
+}
+
+.tasa-payroll-form .form-table th {
+    width: 250px;
+    font-weight: 600;
+}
+
+.tasa-payroll-form .required {
+    color: #dc3232;
+}
+
+.tasa-payroll-form input[readonly] {
+    background-color: #f0f0f1;
+    cursor: not-allowed;
+}
+
+/* List table styles */
+.wp-list-table.tasa-payroll-table {
+    margin-top: 20px;
+}
+
+.wp-list-table.tasa-payroll-table th,
+.wp-list-table.tasa-payroll-table td {
+    padding: 12px 10px;
+}
+
+.wp-list-table.tasa-payroll-table .column-actions {
+    white-space: nowrap;
+}
+
+.wp-list-table.tasa-payroll-table .button-small {
+    margin-right: 5px;
+}
+
+/* Logo upload styles */
+.tasa-logo-upload {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tasa-logo-upload .button {
+    max-width: 150px;
+}
+
+.tasa-logo-preview img {
+    border: 1px solid #ddd;
+    padding: 5px;
+    background: #fff;
+    border-radius: 4px;
+}
+
+/* Search box */
+.search-box {
+    float: right;
+    margin: 0 0 20px;
+}
+
+.search-box input[type="search"] {
+    width: 300px;
+    margin-right: 5px;
+}
+
+/* Responsive */
+@media screen and (max-width: 782px) {
+    .tasa-payroll-form .form-table th {
+        width: auto;
+    }
+    
+    .search-box {
+        float: none;
+    }
+    
+    .search-box input[type="search"] {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+}
+
