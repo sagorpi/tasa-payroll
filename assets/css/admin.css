@@ -18,6 +18,53 @@
     cursor: not-allowed;
 }
 
+.tasa-payroll-editor-layout {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    margin-top: 12px;
+}
+
+.tasa-payroll-editor-form {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tasa-payroll-editor-preview {
+    width: min(48%, 680px);
+    min-width: 380px;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    padding: 12px;
+    box-sizing: border-box;
+    position: sticky;
+    top: 32px;
+}
+
+.tasa-payroll-editor-preview h2 {
+    margin: 0 0 8px;
+}
+
+#tasa-payroll-preview-status {
+    margin: 0 0 10px;
+}
+
+#tasa-payroll-pdf-preview-frame {
+    width: 100%;
+    min-height: 760px;
+    border: 1px solid #ccd0d4;
+    background: #fff;
+}
+
+#tasa-payroll-form .required {
+    color: #dc3232;
+}
+
+#tasa-payroll-form .form-table th {
+    width: 250px;
+}
+
 /* List table styles */
 .wp-list-table.tasa-payroll-table {
     margin-top: 20px;
@@ -70,6 +117,20 @@
     .tasa-payroll-form .form-table th {
         width: auto;
     }
+
+    .tasa-payroll-editor-layout {
+        flex-direction: column;
+    }
+
+    .tasa-payroll-editor-preview {
+        width: 100%;
+        min-width: 0;
+        position: static;
+    }
+
+    #tasa-payroll-pdf-preview-frame {
+        min-height: 520px;
+    }
     
     .search-box {
         float: none;
@@ -80,4 +141,3 @@
         margin-bottom: 10px;
     }
 }
-

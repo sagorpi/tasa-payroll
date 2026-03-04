@@ -45,8 +45,10 @@ class TASA_Payroll_Admin {
         add_action('admin_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('admin_post_tasa_save_payroll', array($this, 'save_payroll'));
         add_action('admin_post_tasa_delete_payroll', array($this, 'delete_payroll'));
+        add_action('admin_post_tasa_preview_payslip', array($this, 'preview_payslip'));
         add_action('admin_post_tasa_save_employee', array($this, 'save_employee'));
         add_action('wp_ajax_tasa_get_employee_detail', array($this, 'ajax_get_employee_detail'));
+        add_action('wp_ajax_tasa_build_payroll_preview', array($this, 'ajax_build_payroll_preview'));
     }
     
     /**
@@ -396,6 +398,226 @@ class TASA_Payroll_Admin {
             'employee_id' => tasa_payroll_get_employee_display_id($user_id, $custom_employee_id),
             'phone_number' => $detail && !empty($detail->phone_number) ? tasa_payroll_format_phone_number($detail->phone_number) : '',
         ));
+    }
+
+    /**
+     * AJAX: Build a PDF preview URL from current payroll form values.
+     */
+    public function ajax_build_payroll_preview() {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Unauthorized request.', 'tasa-payroll')), 403);
+        }
+
+        check_ajax_referer('tasa_payroll_nonce', 'nonce');
+
+        $preview_payload = $this->get_payroll_preview_payload($_POST);
+        $key = 'tasa_pdf_preview_' . get_current_user_id() . '_' . wp_generate_password(12, false, false);
+
+        set_transient($key, array(
+            'user_id' => get_current_user_id(),
+            'payroll' => $preview_payload,
+        ), 15 * MINUTE_IN_SECONDS);
+
+        wp_send_json_success(array(
+            'preview_url' => $this->get_pdf_preview_url(0, $key),
+        ));
+    }
+
+    /**
+     * Preview payslip as inline/download PDF for admin pages.
+     */
+    public function preview_payslip() {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('You do not have sufficient permissions to perform this action.', 'tasa-payroll'));
+        }
+
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'tasa_preview_payslip')) {
+            wp_die(__('Security check failed.', 'tasa-payroll'));
+        }
+
+        $output_mode = (isset($_GET['inline']) && $_GET['inline'] === '1') ? 'I' : 'D';
+        $payroll = null;
+
+        if (!empty($_GET['preview_key'])) {
+            $preview_key = sanitize_text_field(wp_unslash($_GET['preview_key']));
+            $preview_data = get_transient($preview_key);
+
+            if (
+                is_array($preview_data) &&
+                isset($preview_data['user_id'], $preview_data['payroll']) &&
+                (int) $preview_data['user_id'] === get_current_user_id()
+            ) {
+                $payroll = (object) $preview_data['payroll'];
+            }
+        }
+
+        if (!$payroll) {
+            $payroll_id = isset($_GET['payroll_id']) ? intval($_GET['payroll_id']) : 0;
+            $payroll = $this->get_preview_payroll_object($payroll_id);
+        }
+
+        $pdf_generator = TASA_Payroll_PDF_Generator::get_instance();
+        $pdf_generator->generate_payslip($payroll, array(
+            'output_mode' => $output_mode,
+        ));
+        exit;
+    }
+
+    /**
+     * Build sanitized payroll-like payload from add/edit form request values.
+     */
+    private function get_payroll_preview_payload($source) {
+        $source = is_array($source) ? wp_unslash($source) : array();
+        $payroll_id = isset($source['payroll_id']) ? intval($source['payroll_id']) : 0;
+        $fallback = $this->get_preview_payroll_object($payroll_id);
+
+        $user_id = isset($source['user_id']) ? intval($source['user_id']) : (int) $fallback->user_id;
+        if ($user_id <= 0 || !get_userdata($user_id)) {
+            $user_id = (int) $fallback->user_id;
+        }
+
+        $month = isset($source['month']) ? intval($source['month']) : (int) $fallback->month;
+        if ($month < 1 || $month > 12) {
+            $month = (int) $fallback->month;
+        }
+
+        $year = isset($source['year']) ? intval($source['year']) : (int) $fallback->year;
+        if ($year < 1970 || $year > 9999) {
+            $year = (int) $fallback->year;
+        }
+
+        $total_working_days = isset($source['total_working_days']) ? intval($source['total_working_days']) : (int) $fallback->total_working_days;
+        if ($total_working_days <= 0) {
+            $total_working_days = (int) $fallback->total_working_days;
+        }
+
+        $days_absent = isset($source['days_absent']) ? floatval($source['days_absent']) : (float) $fallback->days_absent;
+        if ($days_absent < 0) {
+            $days_absent = 0;
+        }
+        if ($days_absent > $total_working_days) {
+            $days_absent = (float) $total_working_days;
+        }
+
+        $monthly_salary = isset($source['monthly_salary']) ? floatval($source['monthly_salary']) : (float) $fallback->monthly_salary;
+        if ($monthly_salary < 0) {
+            $monthly_salary = 0;
+        }
+
+        $bonus = isset($source['bonus']) ? floatval($source['bonus']) : (float) $fallback->bonus;
+        if ($bonus < 0) {
+            $bonus = 0;
+        }
+
+        $income_tax = isset($source['income_tax']) ? floatval($source['income_tax']) : (float) $fallback->income_tax;
+        if ($income_tax < 0) {
+            $income_tax = 0;
+        }
+
+        $provident_fund = isset($source['provident_fund']) ? floatval($source['provident_fund']) : (float) $fallback->provident_fund;
+        if ($provident_fund < 0) {
+            $provident_fund = 0;
+        }
+
+        $per_day_salary = $total_working_days > 0 ? ($monthly_salary / $total_working_days) : 0;
+        $days_present = max(0, $total_working_days - $days_absent);
+        $final_salary = ($days_present * $per_day_salary) + $bonus - $income_tax - $provident_fund;
+
+        return array(
+            'id' => 0,
+            'user_id' => $user_id,
+            'month' => $month,
+            'year' => $year,
+            'total_working_days' => $total_working_days,
+            'days_absent' => $days_absent,
+            'monthly_salary' => $monthly_salary,
+            'per_day_salary' => $per_day_salary,
+            'bonus' => $bonus,
+            'income_tax' => $income_tax,
+            'provident_fund' => $provident_fund,
+            'final_salary' => $final_salary,
+        );
+    }
+
+    /**
+     * Resolve a payroll object for preview/testing.
+     */
+    private function get_preview_payroll_object($payroll_id = 0) {
+        $payroll = null;
+
+        if ($payroll_id > 0) {
+            $payroll = $this->db->get_payroll($payroll_id);
+        }
+
+        if (!$payroll) {
+            $latest = $this->db->get_all_payrolls(1, 0);
+            if (!empty($latest)) {
+                $payroll = $latest[0];
+            }
+        }
+
+        if ($payroll) {
+            return $payroll;
+        }
+
+        $user_id = get_current_user_id();
+        if ($user_id <= 0) {
+            $fallback_users = get_users(array('number' => 1, 'fields' => 'ID'));
+            $user_id = !empty($fallback_users) ? (int) $fallback_users[0] : 0;
+        }
+
+        if ($user_id <= 0) {
+            wp_die(__('Please create at least one WordPress user to preview the payslip.', 'tasa-payroll'));
+        }
+
+        $month = (int) current_time('n');
+        $year = (int) current_time('Y');
+        $total_working_days = (int) cal_days_in_month(CAL_GREGORIAN, $month, $year);
+        $days_absent = 2;
+        $bonus = 2500;
+        $income_tax = 1000;
+        $provident_fund = 500;
+        $employee_detail = $this->db->get_employee_detail($user_id);
+        $monthly_salary = ($employee_detail && (float) $employee_detail->base_salary > 0) ? (float) $employee_detail->base_salary : 50000;
+        $per_day_salary = $monthly_salary / $total_working_days;
+        $days_present = $total_working_days - $days_absent;
+        $final_salary = ($days_present * $per_day_salary) + $bonus - $income_tax - $provident_fund;
+
+        return (object) array(
+            'id' => 0,
+            'user_id' => $user_id,
+            'month' => $month,
+            'year' => $year,
+            'total_working_days' => $total_working_days,
+            'days_absent' => $days_absent,
+            'monthly_salary' => $monthly_salary,
+            'per_day_salary' => $per_day_salary,
+            'bonus' => $bonus,
+            'income_tax' => $income_tax,
+            'provident_fund' => $provident_fund,
+            'final_salary' => $final_salary,
+        );
+    }
+
+    /**
+     * Build admin-post URL for PDF preview.
+     */
+    private function get_pdf_preview_url($payroll_id = 0, $preview_key = '') {
+        $args = array(
+            'action' => 'tasa_preview_payslip',
+            'inline' => '1',
+            '_wpnonce' => wp_create_nonce('tasa_preview_payslip'),
+        );
+
+        if ($payroll_id > 0) {
+            $args['payroll_id'] = (int) $payroll_id;
+        }
+
+        if (!empty($preview_key)) {
+            $args['preview_key'] = $preview_key;
+        }
+
+        return add_query_arg($args, admin_url('admin-post.php'));
     }
 
     /**

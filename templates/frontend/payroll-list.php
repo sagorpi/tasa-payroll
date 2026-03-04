@@ -79,7 +79,8 @@ $current_user = wp_get_current_user();
                 <?php
                 $month_name = date('F', mktime(0, 0, 0, $payroll->month, 1));
                 $days_present = $payroll->total_working_days - $payroll->days_absent;
-                $gross_earnings = ($days_present * $payroll->per_day_salary) + $payroll->bonus;
+                $bonus_amount = isset($payroll->bonus) ? (float) $payroll->bonus : 0;
+                $gross_earnings = ($days_present * $payroll->per_day_salary) + $bonus_amount;
                 $total_deductions = $payroll->income_tax + $payroll->provident_fund;
                 ?>
                 
@@ -131,10 +132,12 @@ $current_user = wp_get_current_user();
                                     <span><?php _e('Per Day Salary:', 'tasa-payroll'); ?></span>
                                     <span>₹<?php echo number_format($payroll->per_day_salary, 2); ?></span>
                                 </div>
-                                <div class="detail-row">
-                                    <span><?php _e('Bonus:', 'tasa-payroll'); ?></span>
-                                    <span>₹<?php echo number_format($payroll->bonus, 2); ?></span>
-                                </div>
+                                <?php if ($bonus_amount > 0) : ?>
+                                    <div class="detail-row">
+                                        <span><?php _e('Bonus:', 'tasa-payroll'); ?></span>
+                                        <span>₹<?php echo number_format($bonus_amount, 2); ?></span>
+                                    </div>
+                                <?php endif; ?>
                                 <div class="detail-row detail-total">
                                     <span><?php _e('Gross Earnings:', 'tasa-payroll'); ?></span>
                                     <span>₹<?php echo number_format($gross_earnings, 2); ?></span>

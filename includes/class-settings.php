@@ -96,7 +96,10 @@ class TASA_Payroll_Settings {
      * Enqueue scripts
      */
     public function enqueue_scripts($hook) {
-        if ('tasa-payroll_page_tasa-payroll-settings' !== $hook) {
+        $current_page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+        $is_settings_page = ('tasa-payroll-settings' === $current_page) || ('tasa-payroll_page_tasa-payroll-settings' === $hook);
+
+        if (!$is_settings_page) {
             return;
         }
         
@@ -213,4 +216,3 @@ class TASA_Payroll_Settings {
         <?php
     }
 }
-

@@ -1,4 +1,79 @@
 jQuery(document).ready(function($) {
+    var $previewFrame = $('#tasa-payroll-pdf-preview-frame');
+    var $previewStatus = $('#tasa-payroll-preview-status');
+    var previewTimer = null;
+    var previewRequest = null;
+
+    function getPreviewFieldValue(fieldName) {
+        var $field = $('[name="' + fieldName + '"]');
+        if ($field.length) {
+            return $field.first().val();
+        }
+
+        var $fallback = $('#' + fieldName);
+        return $fallback.length ? $fallback.val() : '';
+    }
+
+    function setPreviewStatus(message) {
+        if ($previewStatus.length) {
+            $previewStatus.text(message);
+        }
+    }
+
+    function buildPreviewPayload() {
+        return {
+            action: 'tasa_build_payroll_preview',
+            nonce: tasaPayroll.nonce,
+            payroll_id: getPreviewFieldValue('payroll_id') || 0,
+            user_id: getPreviewFieldValue('user_id') || 0,
+            month: getPreviewFieldValue('month') || '',
+            year: getPreviewFieldValue('year') || '',
+            total_working_days: getPreviewFieldValue('total_working_days') || '',
+            days_absent: getPreviewFieldValue('days_absent') || '',
+            monthly_salary: getPreviewFieldValue('monthly_salary') || '',
+            bonus: getPreviewFieldValue('bonus') || '',
+            income_tax: getPreviewFieldValue('income_tax') || '',
+            provident_fund: getPreviewFieldValue('provident_fund') || ''
+        };
+    }
+
+    function refreshPdfPreview() {
+        if (!$previewFrame.length || typeof tasaPayroll === 'undefined') {
+            return;
+        }
+
+        if (previewRequest && previewRequest.readyState !== 4) {
+            previewRequest.abort();
+        }
+
+        setPreviewStatus('Updating PDF preview...');
+
+        previewRequest = $.post(tasaPayroll.ajaxurl, buildPreviewPayload())
+            .done(function(response) {
+                if (response && response.success && response.data && response.data.preview_url) {
+                    $previewFrame.attr('src', response.data.preview_url + '&t=' + Date.now());
+                    setPreviewStatus('PDF preview is up to date.');
+                } else if (response && response.data && response.data.message) {
+                    setPreviewStatus(response.data.message);
+                } else {
+                    setPreviewStatus('Unable to update PDF preview.');
+                }
+            })
+            .fail(function(xhr, statusText) {
+                if (statusText !== 'abort') {
+                    setPreviewStatus('Failed to update PDF preview.');
+                }
+            });
+    }
+
+    function queuePdfPreview(delay) {
+        if (!$previewFrame.length) {
+            return;
+        }
+
+        window.clearTimeout(previewTimer);
+        previewTimer = window.setTimeout(refreshPdfPreview, typeof delay === 'number' ? delay : 450);
+    }
 
     function applyEmployeeMeta(baseSalary, employeeId) {
         var isEditMode = $('input[name="payroll_id"]').length > 0;
@@ -98,6 +173,8 @@ jQuery(document).ready(function($) {
             $('#per_day_salary').val('0.00');
             $('#final_salary').val('0.00');
         }
+
+        queuePdfPreview();
     }
     
     // Event listeners for auto-calculation
@@ -121,6 +198,7 @@ jQuery(document).ready(function($) {
     }
 
     fetchEmployeeMeta($('#user_id').val());
+    queuePdfPreview(0);
 
     // Normalize phone number while typing in employee edit form.
     $('#phone_number').on('input', function() {

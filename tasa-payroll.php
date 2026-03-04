@@ -3,7 +3,7 @@
  * Plugin Name: TASA Payroll Management
  * Plugin URI: https://example.com/tasa-payroll
  * Description: A comprehensive payroll management system for WordPress with admin management, employee portal, and PDF salary slips.
- * Version: 1.1.1
+ * Version: 1.1.2
  * Author: TASA
  * Author URI: https://example.com
  * License: GPL v2 or later
@@ -18,7 +18,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('TASA_PAYROLL_VERSION', '1.1.1');
+define('TASA_PAYROLL_VERSION', '1.1.2');
 define('TASA_PAYROLL_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('TASA_PAYROLL_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('TASA_PAYROLL_PLUGIN_BASENAME', plugin_basename(__FILE__));
